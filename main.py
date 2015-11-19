@@ -32,41 +32,47 @@ import sys
 def estimate_TV_DBN(data,pLambda,pBandwidth):
     gene_num = len(data)   # the number of genes
     time_num = len(data.transpose()) # the number of time points
+
+    pBandwidth = float(time_num)/7
     A = []                           # coefficient vectors
     # initialize the A vector
-    for t in range(time_num+1):
-        A.append(pd.DataFrame(np.random.rand(gene_num,gene_num))) # A0 is randomly initialized
+    A.append(pd.DataFrame(np.random.rand(gene_num,gene_num)))
+    for t in range(time_num):
+        A.append(pd.DataFrame(np.zeros(shape=(gene_num,gene_num))))
 
     for p in range(gene_num):
         for t in range(1,time_num+1):
             A[t].iloc[p] = A[t-1].iloc[p].copy()
-
             w_t = []
+
             # Scale time series
-            for i in range(time_num):
-                w_t.append(get_weight(t,i,pBandwidth,time_num))
-                    
+            # for i in range(time_num):
+            #     w_t.append(get_weight(t,i,pBandwidth,time_num))
+        
             while True:
                 prev = A[t].iloc[p].copy()
-                # compute and update
-                for j in range(gene_num):
-                    b = (2.0/time_num) * (data.iloc[j,:]*data.iloc[j,:]*w_t).sum()
-                
-                    S = 0.0
-                    for i in range(time_num):
-                        small_S = 0.0
-                        if i == 0:
-                            continue
 
+                # compute and update
+                prewt = []
+                for i in range(time_num):
+                    prewt.append(get_weight(t,i,pBandwidth,time_num))
+                    
+                
+                for j in range(gene_num):
+                    # b = (2.0/time_num)*(data.iloc[j,:]*data.iloc[j,:]*prewt).sum()
+                    S = 0.0
+                    b = 0
+                    for i in range(1,time_num):
+                        small_S = 0.0
+                        w_t = get_weight(t,i,pBandwidth,time_num)
+                        b = b + data.iloc[j,i-1]*data.iloc[j,i-1]*w_t
                         for k in range(gene_num):
                             if k==j:
                                 continue
-                            small_S = small_S + (A[t].iloc[p,k]*data.iloc[k,i-1])
+                            small_S = small_S+(A[t].iloc[p,k]*data.iloc[k,i-1])
+                        S = S +(((small_S - data.iloc[p,i])*data.iloc[j,i-1])*w_t)
 
-                        S = S +(small_S -data.iloc[p,i]*data.iloc[j,i-1])*w_t[i]
- 
                     S = S/time_num*2
-                    print "S:",S
                     if abs(S) > pLambda:
                         sign = 0
                         if S-pLambda > 0:
@@ -77,27 +83,27 @@ def estimate_TV_DBN(data,pLambda,pBandwidth):
                     else:
                         A[t].iloc[p,j] = 0
 
+                #print A[t].iloc[p,:]
                 if not(False in list(prev == A[t].iloc[p])):
                     break
-
-            print "DONE"
+            
+            print A[t]
 
     return A[1:]                # Return A except A0
+
 
 def get_weight(t_star,t,pBandwidth,time_num):
     return calculate_kernel_function(t_star,t,pBandwidth)/calculate_kernel_sum(t_star,pBandwidth,time_num)
 
 def calculate_kernel_function(t_star,t,h):
-    temp = math.pow(t_star-t,2)
-    
+    temp = math.pow(t_star-t,2)    
     return math.exp(temp*(-1)/float(h))
-                                            
 
+      
 def calculate_kernel_sum(t_star,h,time_num):
     s = 0.0
     for t in range(time_num):
         s = s + calculate_kernel_function(t_star,t,h)
-
     return s
 
 
@@ -108,14 +114,15 @@ if __name__ == "__main__":
     pBandwidth = sys.argv[3]
 
     filename = 'fitnorm.gLoess2Dt25s04.txt'
-    pLambda = 0.01
-    pBandwidth = 20
+    pLambda = 0.003
+    pBandwidth = 40
 
     data = pd.read_csv(filename,sep='\t')
     data = data.iloc[:,2:]
-    data = data.iloc[1:30,:]
+    data = data.iloc[1:20,1:20]
+
     TV_network = estimate_TV_DBN(data,pLambda,pBandwidth)
 
     for i,p in enumerate(TV_network):
-        p.to_csv(filename+'_output' + str(i) + '.csv',sep='\t')
+        p.to_csv('output/'+filename+'_output' + str(i) + '.csv',sep='\t')
     # TV_network.to_csv(filename+'_'+'output.csv',sep='\t')
