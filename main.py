@@ -87,6 +87,8 @@ def estimate_TV_DBN(data,pLambda,pBandwidth):
                 if not(False in list(prev == A[t].iloc[p])):
                     break
             print p*t,":(",time_num,gene_num,")"
+        A[t].to_csv('result'+t+'.csv',sep='\t')
+        
 
     return A[1:]                # Return A except A0
 
@@ -113,12 +115,12 @@ if __name__ == "__main__":
     pBandwidth = sys.argv[3]
 
     filename = 'fitnorm.gLoess2Dt25s04.txt'
-    pLambda = 0.003
-    pBandwidth = 40
+    pLambda = 0.3
+    pBandwidth = 47
 
     data = pd.read_csv(filename,sep='\t')
     data = data.iloc[:,2:]
-    data = data.iloc[1:500,:]
+    data = data.iloc[1:200,:]
 
     TV_network = estimate_TV_DBN(data,pLambda,pBandwidth)
 
